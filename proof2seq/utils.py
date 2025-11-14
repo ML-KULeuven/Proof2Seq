@@ -177,6 +177,8 @@ def minimize_literals(literals):
     for var, dom in domains.items():
         if len(dom) == 1:
             new_literals.append(var == next(iter(dom)))
+        elif len(dom) == 0:
+            return [cp.BoolVal(False)]
         else:
             new_literals.append(var >= min(dom))
             for i in range(min(dom), max(dom)+1):
