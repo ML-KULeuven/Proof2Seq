@@ -184,7 +184,6 @@ def pretty_print_sequence(sequence, indent=0, format="domain"):
                 else:
                     parts.append(f"{var} ∈ [{var.lb}..{var.ub}]")
             lines += ["         " +", ".join(parts)]
-            # lines += ["    " + ", ".join([f"{var} ∈ {sorted(dom)}" for var, dom in domains.items()])]
         else:
             raise ValueError(f"Expected 'literals' or 'domain' as format but got {format}")
 
