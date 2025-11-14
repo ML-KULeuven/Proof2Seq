@@ -52,9 +52,9 @@ class PumpkinProofParser(CPM_pumpkin):
 
     VAR_NAMES_REGEX = re.compile("[^0-9a-zA-Z]+")
     def solver_var(self, cpm_var):
-        # if isinstance(cpm_var, _NumVarImpl):
+        if isinstance(cpm_var, _NumVarImpl):
             # we need to replace variable names to those supported by the proof format
-            # cpm_var.name = re.sub(self.VAR_NAMES_REGEX, "_", cpm_var.name)
+            cpm_var.name = re.sub(self.VAR_NAMES_REGEX, "_", cpm_var.name)
         return super().solver_var(cpm_var)
 
     def __add__(self, cpm_expr_orig):
