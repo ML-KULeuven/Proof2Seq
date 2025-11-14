@@ -1,4 +1,9 @@
 
+import cpmpy as cp
+from cpmpy.expressions.core import Operator, Comparison
+from cpmpy.expressions.utils import is_num
+from cpmpy.expressions.variables import _NumVarImpl
+
 from .parsing import PumpkinProofParser
 from .simplify import simplify_proof
 from .minimize import minimize_proof
@@ -79,6 +84,19 @@ def compute_sequence(model,
 
     # Remove steps deriving clauses with more than one variable
     def is_domain_reduction(step):
+        for c in step['derived']:
+            if isinstance(c, cp.BoolVal): return True
+            if isinstance(c, Operator) and c.name == "or":
+                if len(c.args) > 1:
+                    return False
+            elif isinstance(c, Comparison):
+                var, val = c.args
+                assert isinstance(var, _NumVarImpl)
+                assert is_num(val)
+            else:
+                raise ValueError(f"Unexpected derived constraint {c}")
+        return True
+
         return len(get_variables(step['derived'])) <= 1
 
     proof = simplify_proof(proof, condition=is_domain_reduction)
