@@ -132,11 +132,11 @@ def get_sequence_statistics(sequence):
 def print_sequence_statistics(sequence, precision=2):
 
     print("Statistics for explanation sequence:")
-    n_cons = [len(step['constraints']) for step in sequence]
-    print("#steps:", len(sequence), end="\t")
-    print("avg #constraints:", round(sum(n_cons) / len(sequence),precision), end="\t")
-    print("max #constraints:", max(n_cons), end="\t")
-    print("std #constraints:", round(np.std(n_cons),precision), end="\t")
+    stats = get_sequence_statistics(sequence)
+    print("#steps:", stats['length'], end="\t")
+    print("avg #constraints:", round(stats['avg_cons'],precision), end="\t")
+    print("std #constraints:", round(stats['std_cons'], precision), end="\t")
+    print("max #constraints:", stats['max_cons'], end="\t")
     print("\n")
 
 
