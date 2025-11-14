@@ -93,21 +93,41 @@ def sanity_check_proof(proof):
 
         unsat_model = cp.Model(cpm_reasons + [~cp.all(cpm_derived)])
         if unsat_model.solve() is not False:
-            raise ValueError(f"Error in proof step with id {step['id']}!"
-                             f"Reasons do not logically imply derived constraint!"
+            raise ValueError(f"Error in proof step with id {step['id']}!\n"
+                             f"Reasons do not logically imply derived constraint!\n"
                              f"Reasons:\n\t" +'\n\t'.join(map(str,cpm_reasons)) +"\n"
                              f"Derived: {cpm_derived}")
 
 
+def get_proof_statistics(proof):
+    n_reasons = [len(step['reasons']) for step in proof]
+    return dict(
+        length = len(proof),
+        avg_reasons = sum(n_reasons) / len(n_reasons),
+        std_reasons = np.std(n_reasons),
+        max_reasons = max(n_reasons)
+    )
+
 def print_proof_statistics(proof, name="Proof", precision=2):
 
     print(f"Statistics for {name}:")
-    n_reasons = [len(step['reasons']) for step in proof]
-    print("#steps:", len(proof), end="\t")
-    print("avg #reasons:", round(sum(n_reasons)/len(proof),precision), end="\t")
-    print("max #reasons:", max(n_reasons), end="\t")
-    print("std #reasons:", round(np.std(n_reasons),precision), end="\t")
+    stats = get_proof_statistics(proof)
+    print("#steps:", stats['length'], end="\t")
+    print("avg #reasons:", round(stats['avg_reasons'],precision), end="\t")
+    print("std #reasons:", round(stats['std_reasons'], precision), end="\t")
+    print("max #reasons:", stats['max_reasons'], end="\t")
     print("\n")
+
+
+def get_sequence_statistics(sequence):
+
+    n_cons = [len(step['constraints']) for step in sequence]
+    return dict(
+        length = len(sequence),
+        avg_cons = sum(n_cons) / len(sequence),
+        std_cons = np.std(n_cons),
+        max_cons = max(n_cons)
+    )
 
 def print_sequence_statistics(sequence, precision=2):
 
@@ -118,6 +138,8 @@ def print_sequence_statistics(sequence, precision=2):
     print("max #constraints:", max(n_cons), end="\t")
     print("std #constraints:", round(np.std(n_cons),precision), end="\t")
     print("\n")
+
+
 
 def get_domains_from_literals(literals):
     domains = dict()
