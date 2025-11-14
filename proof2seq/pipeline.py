@@ -112,7 +112,6 @@ def compute_sequence(model,
 
     # Convert proof to sequence, merge steps with same set of reasons
     sequence = finalize_sequence(proof)
-    print("Length of minimzed proof:", len(proof))
 
     if verbose > 0:
         print_sequence_statistics(sequence)
