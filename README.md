@@ -48,9 +48,13 @@ For the best result, we recommend to use simple trimming in the first phase, and
 ## Citing
 ```bibtex
 @inproceedings{bleukx2026certifying,
-    author = {Ignace Bleukx and Maarten Flippo and Emir Demirović and Bart Bogaerts and Tias Guns},
+    author = {Ignace Bleukx and 
+              Maarten Flippo and 
+              Emir Demirović and 
+              Bart Bogaerts and 
+              Tias Guns},
     title = {Using Certifying Constraint Solvers for Generating Step-wise Explanations},
-    booktitle = {Proceedings of The 40th Annual {AAAI} Conference on Artificial Intelligence },
+    booktitle = {Proceedings of The 40th Annual {AAAI} Conference on Artificial Intelligence},
     year = {2026},
     note = {accepted for publication}
 }
