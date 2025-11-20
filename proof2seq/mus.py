@@ -114,13 +114,15 @@ class SMUS(MUSAlgo):
                 return [self.dmap[a] for a in hs]
 
             # else SAT, find some (cheap) correction subsets
-            new_corr_subset = [a for a in soft_assump if a.value() is False and self._get_val(self.dmap[a]) is False]
+            new_corr_subset = [a for a in soft_assump if a.value() is False]
             hs_solver += cp.sum(new_corr_subset) >= 1
 
             # greedily search for other corr subsets disjoint to this one
             sat_subset = list(new_corr_subset)
             while self.solver.solve(assumptions=sat_subset+hard_assump) is True:
-                new_corr_subset = [a for a in soft_assump if a.value() is False and self._get_val(self.dmap[a]) is False]
+                new_corr_subset = [a for a in soft_assump if a.value() is False]
+                assert set(sat_subset) & set(new_corr_subset) == set(), "new corr subset is not disjoint to previous"
+                assert len(new_corr_subset) > 0, "new corr subset is empty"
                 sat_subset += new_corr_subset
                 hs_solver += cp.sum(new_corr_subset) >= 1
 
