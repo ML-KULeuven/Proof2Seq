@@ -51,9 +51,13 @@ def run_configs_on_model(model, configs):
 def run_experiments(models, configs):
 
     num_workers = NUM_WORKERS
-    with Pool(num_workers) as p:
-        results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs)) for model in models])
-        results = [x for lst in results for x in lst]# each function returns a list of results
+    if NUM_WORKERS == 1:
+        results = [run_configs_on_model(model, configs) for model in models]
+    else:
+        with Pool(num_workers) as p:
+            results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs)) for model in models])
+
+    results = [x for lst in results for x in lst]# each function returns a list of results
     df = pd.DataFrame(results)
     return df
 
