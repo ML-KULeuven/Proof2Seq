@@ -7,7 +7,7 @@ from cpmpy.transformations.normalize import toplevel_list
 from .mus import DeletionBasedMUS, SMUS
 
 
-def minimize_proof(proof, model, minimization_type="global", mus_type="smus", **mus_algo_kwargs):
+def minimize_proof(proof, model, minimization_type="global", mus_type="smus", verbose=0, **mus_algo_kwargs):
 
     assert minimization_type in {"proof", "trim", "local", "global"}
 
@@ -28,8 +28,12 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", **
     required = {proof[-1]['id']}
     new_proof = []
 
+    if verbose >= 3:
+        print(f"Minimizing proof with {len(proof)} steps")
     for step in reversed(proof):
         if step['id'] in required:
+            if verbose >= 3:
+                print("Minimizing proof step", step['id'])
             # Step is required, let's minimize the reasons of this step
             # We want a MUS that minimizes the number of constraints
             # Additionally, we prefer nogoods that we need to explain already anyway
@@ -45,6 +49,8 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", **
                 candidate_cons = toplevel_list(model.constraints, merge_and=False)
 
             # Minimize number of constraints
+            if verbose >= 4:
+                print(f"Computing required constraints (out of {len(candidate_cons)})")
             required_cons = mus_algo.get_mus(soft=candidate_cons,
                                              hard=candidate_nogoods + [~cp.all(step['derived'])])
 
@@ -52,9 +58,12 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", **
             potential_known_nogoods = [r for r in candidate_nogoods if r in required]
             potential_new_nogoods = [r for r in candidate_nogoods if r not in required]
 
+            if verbose >= 4:
+                print(f"Computing required new nogoods (out of {len(potential_new_nogoods)})")
             required_new_nogoods = mus_algo.get_mus(soft=potential_new_nogoods,
                                                     hard=potential_known_nogoods + required_cons + [~cp.all(step['derived'])])
-
+            if verbose >= 4:
+                print(f"Computing required new nogoods (out of {len(potential_new_nogoods)})")
             required_known_nogoods = mus_algo.get_mus(soft=potential_known_nogoods,
                                                       hard=required_new_nogoods + required_cons + [~cp.all(step['derived'])])
 
@@ -63,9 +72,14 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", **
 
             # Update set of required steps
             required.update(required_nogoods)
+            new_reasons = required_cons + required_nogoods
+
+
+            if verbose >= 3:
+                print(f"Done with minimization of proof step {step['id']}, reduced number of reasons from {len(step['reasons'])} to {len(new_reasons)}")
 
             step = copy.deepcopy(step)
-            step['reasons'] = required_cons + required_nogoods
+            step['reasons'] = new_reasons
             new_proof.insert(0, step)
 
     return new_proof
