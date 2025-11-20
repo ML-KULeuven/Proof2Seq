@@ -102,6 +102,9 @@ class SMUS(MUSAlgo):
         hs_solver = cp.SolverLookup.get(self.hs_solver)
         hs_solver.minimize(cp.sum(soft_assump))
 
+        if hasattr(self.solver, "solution_hint"):
+            self.solver.solution_hint(soft_assump, [1 for _ in soft_assump])
+
         while hs_solver.solve() is True:
 
             hs = [a for a in soft_assump if a.value()]
