@@ -1,4 +1,5 @@
 import copy
+from time import time
 
 import cpmpy as cp
 from cpmpy.expressions.core import Expression
@@ -7,9 +8,10 @@ from cpmpy.transformations.normalize import toplevel_list
 from .mus import DeletionBasedMUS, SMUS
 
 
-def minimize_proof(proof, model, minimization_type="global", mus_type="smus", verbose=0, **mus_algo_kwargs):
+def minimize_proof(proof, model, minimization_type="global", mus_type="smus", verbose=0, time_limit=3600, **mus_algo_kwargs):
 
     assert minimization_type in {"proof", "trim", "local", "global"}
+    start = time()
 
     if minimization_type == "proof":
         return proof # do nothing
@@ -31,6 +33,9 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", ve
     if verbose >= 3:
         print(f"Minimizing proof with {len(proof)} steps")
     for step in reversed(proof):
+        if (time() - start) > time_limit:
+            raise TimeoutError("Time limit exceeded while minimizing proof")
+
         if step['id'] in required:
             if verbose >= 3:
                 print("Minimizing proof step", step['id'])
