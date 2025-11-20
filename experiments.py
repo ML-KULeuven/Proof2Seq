@@ -84,7 +84,6 @@ if __name__ == "__main__":
 
 
     configs = [
-        # TODO: replace "proof" with "trim" after bug in Pumpkin is fixed.
         dict(minimization_phase1="trim", minimization_phase2="trim"),
         dict(minimization_phase1="trim", minimization_phase2="local"),
         dict(minimization_phase1="trim", minimization_phase2="global"),
