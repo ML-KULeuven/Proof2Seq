@@ -1,3 +1,5 @@
+import multiprocessing
+from multiprocessing import Pool
 from os import listdir
 from os.path import join
 
@@ -9,53 +11,83 @@ from proof2seq.pipeline import compute_sequence
 from proof2seq.utils import get_sequence_statistics
 import time
 import pandas as pd
+import tempfile
 
-def run_experiment(models, **kwargs):
+NUM_WORKERS = multiprocessing.cpu_count() - 1 # leave one thread available for safety
 
-    statistics = []
-    for model in models:
-        model.to_file("sudoku_model.pickle")
-        start = time.time()
-        # set do_sanity_check to False for proper timing results
-        seq = compute_sequence(model, verbose=0, do_sanity_check=False, **kwargs)
-        end = time.time()
-        statistics.append(dict(runtime=end-start, **get_sequence_statistics(seq), **kwargs))
 
-    return pd.DataFrame(statistics)
+def run_one_experiment(model, **kwargs):
+
+    file = tempfile.NamedTemporaryFile(delete=False).name
+
+    start = time.time()
+    # set verbosity and do_sanity_check to false for proper timing results
+    seq = compute_sequence(model, verbose=0, do_sanity_check=False, proof_name=file, **kwargs)
+    end = time.time()
+
+    return dict(runtime=end-start,
+                **get_sequence_statistics(seq),
+                **kwargs)
+
+def run_experiments(models, configs):
+
+    experiments = [dict(model=model, **config) for model in models for config in configs]
+
+    num_workers = NUM_WORKERS
+    with Pool(num_workers) as p:
+        results = p.starmap(_wrap_func, [(run_one_experiment, exp) for exp in experiments])
+        df = pd.DataFrame(results)
+    return df
+
+
+def _wrap_func(function, dict_with_arguments):
+    return function(**dict_with_arguments)
+
+def plot_runtime(df):
+    import seaborn as sns
+
+    df['method'] = df['minimization_phase1'].astype(str) + "+" + df['minimization_phase2'].astype(str)
+
+    sns.ecdfplot(
+        df,
+        x = "runtime",
+        hue = "method",
+        stat="count"
+    )
+
 
 
 if __name__ == "__main__":
 
 
     configs = [
-        dict(minimization_phase1="trim", minimization_phase2="proof"),
-        dict(minimization_phase1="trim", minimization_phase2="local"),
-        dict(minimization_phase1="trim", minimization_phase2="global"),
-        dict(minimization_phase1="local", minimization_phase2="proof"),
-        dict(minimization_phase1="local", minimization_phase2="local"),
+        # TODO: replace "proof" with "trim" after bug in Pumpkin is fixed.
+        dict(minimization_phase1="proof", minimization_phase2="proof"),
+        # dict(minimization_phase1="proof", minimization_phase2="local"),
+        dict(minimization_phase1="proof", minimization_phase2="global"),
+        # dict(minimization_phase1="local", minimization_phase2="proof"),
+        # dict(minimization_phase1="local", minimization_phase2="local"),
         dict(minimization_phase1="global", minimization_phase2="proof"),
-        dict(minimization_phase1="global", minimization_phase2="local"),
+        # dict(minimization_phase1="global", minimization_phase2="local"),
     ]
 
     models = []
 
-    # Uncomment to run the sudoku experiments
-    # models = [generate_unsat_sudoku_model("benchmarks/expert_sudokus.csv", seed=i) for i in range(100)]
+    benchmark = "sudoku"
 
-    # Uncomment to run the jobshop experiments
-    # models = [generate_unsat_jobshop_model(n_machines=5, n_jobs=5, horizon=50, factor=0.999999, seed=i) for i in range(100)]
+    if benchmark == "sudoku":
+        models = [generate_unsat_sudoku_model("benchmarks/expert_sudokus.csv", seed=i) for i in range(5)]
 
-    # Uncomment to run the modeling examples experiments
-    # model_dir = "benchmarks/modeling_examples"
-    # models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))]
+    if benchmark == "jobshop":
+        models = [generate_unsat_jobshop_model(n_machines=5, n_jobs=5, horizon=50, factor=0.999999, seed=i) for i in range(100)]
 
-    dfs = []
-    for config in configs:
-        print(config)
-        stats = run_experiment(models, **config)
-        dfs.append(stats)
+    if benchmark == "modeling_examples":
+        model_dir = "benchmarks/modeling_examples"
+        models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))]
 
-    df = pd.concat(dfs, ignore_index=True)
+    experiment_result = run_experiments(models, configs)
+    experiment_result.to_pickle(f"{benchmark}_experiments.df")
 
-    grouped = df.groupby(["minimization_phase1", "minimization_phase2"])[['runtime','length', 'max_cons']].agg(['count', 'mean', 'std'])
-    print(grouped.to_markdown())
+    plot_runtime(experiment_result)
+
+
