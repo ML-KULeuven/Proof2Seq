@@ -57,7 +57,34 @@ class PumpkinProofParser(CPM_pumpkin):
             cpm_var.name = re.sub(self.VAR_NAMES_REGEX, "_", cpm_var.name)
         return super().solver_var(cpm_var)
 
-    def __add__(self, cpm_expr_orig):
+    def _sum_args(self, expr, negate=False, tag=None):
+        if isinstance(expr, _NumVarImpl):
+            expr = Operator("sum", [expr])
+        
+        return super()._sum_args(expr, negate=negate, tag=tag)
+
+    def _is_predicate(self, expr):
+        return False # required to tick CPMpy into not posting clauses
+
+    def _get_constraint(self, cpm_expr, tag=None):
+        """
+            Propagation hints don't play well with clauses,
+            Replace all clauses with sum(lits) >= 1
+        """
+        from pumpkin_solver import constraints
+        if tag is None:
+            tag = self.pum_solver.new_constraint_tag()
+        if isinstance(cpm_expr, _BoolVarImpl):
+            # base case, post bv >= 1
+            return [constraints.LessThanOrEquals(self._sum_args(cpm_expr, negate=True, tag=tag), -1, constraint_tag=tag)]
+
+        elif isinstance(cpm_expr, Operator):
+            if cpm_expr.name == "or":
+                return [constraints.LessThanOrEquals(self._sum_args(cp.sum(cpm_expr.args), negate=True, tag=tag), -1,
+                                                     constraint_tag=tag)]
+        return super()._get_constraint(cpm_expr, tag=tag)
+
+    def add(self, cpm_expr_orig):
         """
             Eagerly add a constraint to the underlying solver.
 
@@ -94,13 +121,18 @@ class PumpkinProofParser(CPM_pumpkin):
                 if isinstance(cpm_expr, Operator) and cpm_expr.name == "->":  # found implication
                     bv, subexpr = cpm_expr.args
                     for cons in self._get_constraint(subexpr, tag=tag):
+                        if isinstance(cons, constraints.Clause):
+                            raise ValueError("Clauses should not be posted to the solver, bad behaviour in proofs.")
                         self.pum_solver.add_implication(cons, self.solver_var(bv))
                 else:
                     solver_constraints = self._get_constraint(cpm_expr, tag=tag)
-
                     for cons in solver_constraints:
+                        if isinstance(cons, constraints.Clause):
+                            raise ValueError("Clauses should not be posted to the solver, bad behaviour in proofs.")
                         self.pum_solver.add_constraint(cons)
         return self
+
+    __add__ = add
 
     def read_proof_tree(self, prefix=None):
         """
@@ -148,28 +180,13 @@ class PumpkinProofParser(CPM_pumpkin):
 
                     if match['filtering_algorithm'] == "nogood":  # nogood repeated from before, maybe slightly altered
                         # can be repeated nogood or just clausal propagator
+                        #       update: no clauses end up in the proof anymore
+                        #               just trust the proof and re-use nogood
                         tag = int(match['tag'])
-                        if tag in nogood_ids and tag < int(match['id']):
-                            # is it a repeat of a nogood?
-                            prev_nogood = proof[nogood_ids[tag]]
-                            int_clause = frozenset([-i for i in lit_ids] + propagated_lits)
-                            if int_clause == prev_nogood["int_clause"]:
-                                # no point in repeating... just use the previous nogood directly
-                                repeated_nogoods[int(match['id'])] = tag
-                                # proof.append(dict(
-                                #     id = int(match['id']),
-                                #     type = "inference",
-                                #     reasons = [int(match['tag'])],
-                                #     derived = [derived_clause]
-                                # ))
-                                continue
+                        assert tag in nogood_ids and tag < int(match['id'])
+                        repeated_nogoods[int(match['id'])] = tag
+                        continue
 
-                        proof.append(dict(
-                            id = int(match['id']),
-                            type="inference",
-                            reasons = [self.tags[int(match['tag'])]],
-                            derived = [derived_clause]
-                        ))
                     elif match['filtering_algorithm'] == "initial_domain": # dummy literals to make proof valid
                         proof.append(dict(
                             id = int(match['id']),
