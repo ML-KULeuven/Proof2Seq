@@ -15,7 +15,7 @@ import pandas as pd
 import tempfile
 
 NUM_WORKERS = multiprocessing.cpu_count() - 1 # leave one thread available for safety
-NUM_WORKERS = 1
+# NUM_WORKERS = 1
 
 def run_configs_on_model(model, configs):
 
@@ -74,7 +74,6 @@ if __name__ == "__main__":
 
 
     configs = [
-        # TODO: replace "proof" with "trim" after bug in Pumpkin is fixed.
         dict(minimization_phase1="trim", minimization_phase2="trim"),
         dict(minimization_phase1="trim", minimization_phase2="local"),
         dict(minimization_phase1="trim", minimization_phase2="global"),
@@ -86,8 +85,8 @@ if __name__ == "__main__":
 
     models = []
 
-    benchmark = "jobshop"
-    num_experiments = 5
+    benchmark = "sudoku"
+    num_experiments = 100
     only_plot = False
 
     if benchmark == "sudoku":
