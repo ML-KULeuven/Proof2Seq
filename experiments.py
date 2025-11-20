@@ -7,6 +7,7 @@ import cpmpy as cp
 
 from benchmarks.jobshop import generate_unsat_jobshop_model
 from benchmarks.sudoku import generate_unsat_sudoku_model
+from proof2seq.parsing import PumpkinProofParser
 from proof2seq.pipeline import compute_sequence
 from proof2seq.utils import get_sequence_statistics
 import time
@@ -14,29 +15,39 @@ import pandas as pd
 import tempfile
 
 NUM_WORKERS = multiprocessing.cpu_count() - 1 # leave one thread available for safety
+NUM_WORKERS = 1
 
-
-def run_one_experiment(model, **kwargs):
+def run_configs_on_model(model, configs):
 
     file = tempfile.NamedTemporaryFile(delete=False).name
 
     start = time.time()
-    # set verbosity and do_sanity_check to false for proper timing results
-    seq = compute_sequence(model, verbose=0, do_sanity_check=False, proof_name=file, **kwargs)
-    end = time.time()
+    solver = PumpkinProofParser(model)
+    assert solver.solve(proof=file) is False, "Only support proofs of unsatisfiability for now"
+    solve_time = time.time() - start
 
-    return dict(runtime=end-start,
-                **get_sequence_statistics(seq),
-                **kwargs)
+    results = []
+    for kwargs in configs:
+        start = time.time()
+        # set verbosity and do_sanity_check to false for proper timing results
+        seq = compute_sequence(model, verbose=0, do_sanity_check=True, pumpkin_solver=solver,**kwargs)
+        end = time.time()
+
+        results.append(dict(
+            runtime=solve_time + (end - start),
+            **get_sequence_statistics(seq),
+            **kwargs
+        ))
+
+    return results
 
 def run_experiments(models, configs):
 
-    experiments = [dict(model=model, **config) for model in models for config in configs]
-
     num_workers = NUM_WORKERS
     with Pool(num_workers) as p:
-        results = p.starmap(_wrap_func, [(run_one_experiment, exp) for exp in experiments])
-        df = pd.DataFrame(results)
+        results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs)) for model in models])
+        results = [x for lst in results for x in lst]# each function returns a list of results
+    df = pd.DataFrame(results)
     return df
 
 

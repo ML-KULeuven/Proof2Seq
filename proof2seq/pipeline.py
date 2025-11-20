@@ -19,7 +19,8 @@ def compute_sequence(model,
                      mus_solver = "exact",
                      proof_name="proof.gz",
                      do_sanity_check = True,
-                     verbose = 0
+                     verbose = 0,
+                     pumpkin_solver=None
                      ):
     """
         Compute a step-wise explanation sequence by starting from a DRCP proof.
@@ -48,11 +49,15 @@ def compute_sequence(model,
     :param proof_name: the name of the proof stored on disk
     :param do_sanity_check: For debugging, check whether the proof is valid
     :param verbose: set verbosity and print statistics of proof
+    :param pumpkin_solver: CPMpy Pumpkin solver, only needed to run experiments, to ensure proof is re-used among configs
     :return: sequence of explanation steps
     """
 
-    solver = PumpkinProofParser(model)
-    assert solver.solve(proof=proof_name) is False
+    if pumpkin_solver is None:
+        solver = PumpkinProofParser(model)
+        assert solver.solve(proof=proof_name) is False
+    else:
+        solver = pumpkin_solver
 
     if verbose > 0:
         print(f"Took {solver.status().runtime}seconds to solve model and produce proof")
