@@ -29,7 +29,7 @@ def run_configs_on_model(model, configs):
 
     results = []
     for kwargs in configs:
-        with stopit.ThreadingTimeout(TIMEOUT) as to_ctx_mgr:
+        with stopit.SignalTimeout(TIMEOUT) as to_ctx_mgr:
             assert to_ctx_mgr.state == to_ctx_mgr.EXECUTING
             start = time.time()
             # set verbosity and do_sanity_check to false for proper timing results
