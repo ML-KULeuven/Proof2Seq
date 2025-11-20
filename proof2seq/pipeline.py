@@ -1,9 +1,11 @@
 import copy
+from time import time
 
 import cpmpy as cp
 from cpmpy.expressions.core import Operator, Comparison
 from cpmpy.expressions.utils import is_num
 from cpmpy.expressions.variables import _NumVarImpl
+from cpmpy.solvers.solver_interface import ExitStatus
 
 from .parsing import PumpkinProofParser
 from .simplify import simplify_proof
@@ -20,7 +22,8 @@ def compute_sequence(model,
                      proof_name="proof.gz",
                      do_sanity_check = True,
                      verbose = 0,
-                     pumpkin_solver=None
+                     pumpkin_solver=None,
+                     time_limit=3600,
                      ):
     """
         Compute a step-wise explanation sequence by starting from a DRCP proof.
@@ -52,10 +55,12 @@ def compute_sequence(model,
     :param pumpkin_solver: CPMpy Pumpkin solver, only needed to run experiments, to ensure proof is re-used among configs
     :return: sequence of explanation steps
     """
-
+    start = time()
     if pumpkin_solver is None:
         solver = PumpkinProofParser(model)
-        assert solver.solve(proof=proof_name) is False
+        assert solver.solve(proof=proof_name, time_limit=time_limit) is False
+        if solver.status().exitstatus == ExitStatus.UNKNOWN:
+            raise TimeoutError
     else:
         solver = pumpkin_solver
 
@@ -100,7 +105,11 @@ def compute_sequence(model,
             newproof.append(step)
 
     # Do the first minimization phase
-    proof = minimize_proof(proof, model, minimization_type=minimization_phase1, mus_type="smus", mus_solver=mus_solver, verbose=verbose)
+    time_limit -= (time() - start)
+    proof = minimize_proof(proof, model,
+                           minimization_type=minimization_phase1,
+                           mus_type="smus", mus_solver=mus_solver,
+                           verbose=verbose, time_limit=time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after first minimization phase")
@@ -128,7 +137,11 @@ def compute_sequence(model,
         print_proof_statistics(proof, "proof with only domain reductions")
 
     # Do the second minimization phase
-    proof = minimize_proof(proof, model, minimization_type=minimization_phase2, mus_type="smus", mus_solver=mus_solver)
+    time_limit -= (time() - start)
+    proof = minimize_proof(proof, model,
+                           minimization_type=minimization_phase2,
+                           mus_type="smus", mus_solver=mus_solver,
+                           verbose=verbose, time_limit=time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after second minimization phase")

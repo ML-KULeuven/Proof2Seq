@@ -29,24 +29,22 @@ def run_configs_on_model(model, configs):
 
     results = []
     for kwargs in configs:
-        with stopit.SignalTimeout(TIMEOUT) as to_ctx_mgr:
-            assert to_ctx_mgr.state == to_ctx_mgr.EXECUTING
+        try:
             start = time.time()
             # set verbosity and do_sanity_check to false for proper timing results
-            seq = compute_sequence(model, verbose=0, do_sanity_check=False, pumpkin_solver=solver,**kwargs)
+            seq = compute_sequence(model, verbose=0, do_sanity_check=False,
+                                   pumpkin_solver=solver,time_limit=TIMEOUT,
+                                   **kwargs)
             end = time.time()
 
-        if to_ctx_mgr.state == to_ctx_mgr.TIMED_OUT:
-            results.append(dict(timeout=True, **kwargs))
-        elif to_ctx_mgr.state == to_ctx_mgr.EXECUTED:
             results.append(dict(
                 runtime=solve_time + (end - start),
                 timeout=False,
                 **get_sequence_statistics(seq),
                 **kwargs,
-        ))
-        else:
-            raise ValueError(f"Unexpected state {to_ctx_mgr.state}")
+            ))
+        except TimeoutError:
+            results.append(dict(timeout=True, **kwargs))
 
     return results
 
