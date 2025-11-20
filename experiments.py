@@ -56,16 +56,18 @@ def _wrap_func(function, dict_with_arguments):
 
 def plot_runtime(df):
     import seaborn as sns
+    import matplotlib.pyplot as plt
 
     df['method'] = df['minimization_phase1'].astype(str) + "+" + df['minimization_phase2'].astype(str)
 
-    sns.ecdfplot(
+    fig = sns.ecdfplot(
         df,
         x = "runtime",
         hue = "method",
         stat="count"
     )
 
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -73,31 +75,36 @@ if __name__ == "__main__":
 
     configs = [
         # TODO: replace "proof" with "trim" after bug in Pumpkin is fixed.
-        dict(minimization_phase1="proof", minimization_phase2="proof"),
-        # dict(minimization_phase1="proof", minimization_phase2="local"),
-        dict(minimization_phase1="proof", minimization_phase2="global"),
-        # dict(minimization_phase1="local", minimization_phase2="proof"),
-        # dict(minimization_phase1="local", minimization_phase2="local"),
+        dict(minimization_phase1="trim", minimization_phase2="trim"),
+        dict(minimization_phase1="trim", minimization_phase2="local"),
+        dict(minimization_phase1="trim", minimization_phase2="global"),
+        dict(minimization_phase1="local", minimization_phase2="proof"),
+        dict(minimization_phase1="local", minimization_phase2="local"),
         dict(minimization_phase1="global", minimization_phase2="proof"),
-        # dict(minimization_phase1="global", minimization_phase2="local"),
+        dict(minimization_phase1="global", minimization_phase2="local"),
     ]
 
     models = []
 
-    benchmark = "sudoku"
+    benchmark = "jobshop"
+    num_experiments = 5
+    only_plot = False
 
     if benchmark == "sudoku":
-        models = [generate_unsat_sudoku_model("benchmarks/expert_sudokus.csv", seed=i) for i in range(5)]
+        models = [generate_unsat_sudoku_model("benchmarks/expert_sudokus.csv", seed=i) for i in range(num_experiments)]
 
     if benchmark == "jobshop":
-        models = [generate_unsat_jobshop_model(n_machines=5, n_jobs=5, horizon=50, factor=0.999999, seed=i) for i in range(100)]
+        models = [generate_unsat_jobshop_model(n_machines=5, n_jobs=5, horizon=50, factor=0.999999, seed=i) for i in range(num_experiments)]
 
     if benchmark == "modeling_examples":
         model_dir = "benchmarks/modeling_examples"
-        models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))]
+        models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))[:num_experiments]]
 
-    experiment_result = run_experiments(models, configs)
-    experiment_result.to_pickle(f"{benchmark}_experiments.df")
+    if only_plot is False:
+        experiment_result = run_experiments(models, configs)
+        experiment_result.to_pickle(f"{benchmark}_experiments.df")
+    else:
+        experiment_result = pd.read_pickle(f"{benchmark}_experiments.df")
 
     plot_runtime(experiment_result)
 
