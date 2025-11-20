@@ -1,3 +1,4 @@
+import copy
 
 import cpmpy as cp
 from cpmpy.expressions.core import Operator, Comparison
@@ -72,12 +73,29 @@ def compute_sequence(model,
     if verbose > 0:
         print_proof_statistics(proof, "proof without auxiliary variables")
 
-    # Replace solver-level contsraints with user-level constraints
+    # Replace solver-level constraints with user-level constraints
     for step in proof:
         step['reasons'] = [solver.user_cons.get(r,r) for r in step['reasons']]
 
+    # There are a lot of repeated inferences in the proof,
+    # but we don't care about the exact inferences made, just about the constraint that was used.
+    inference_map = dict() # id to constraint
+    newproof = []
+    for step in proof:
+        if step['type'] == "inference":
+            if len(step['reasons']) == 0: # initial domain
+                step['reasons'] = [cp.BoolVal(True)]
+            assert len(step['reasons']) == 1, f"Inferences should have a single constraint as reason but got {step}"
+            assert isinstance(step['reasons'][0], Expression), f"Inferences should have a single constraint as reason but got {step}"
+            inference_map[step['id']] = step['reasons'][0]
+        elif step['type'] == 'nogood':
+            new_reasons = set(inference_map.get(r,r) for r in step['reasons'])
+            step = copy.copy(step)
+            step['reasons'] = list(new_reasons)
+            newproof.append(step)
+
     # Do the first minimization phase
-    proof = minimize_proof(proof, model, minimization_type=minimization_phase1, mus_type="smus", mus_solver=mus_solver)
+    proof = minimize_proof(proof, model, minimization_type=minimization_phase1, mus_type="smus", mus_solver=mus_solver, verbose=verbose)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after first minimization phase")
