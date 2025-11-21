@@ -12,17 +12,19 @@ from .utils import get_variables
 
 class WrapSolver(SolverInterface):
 
-    def __init__(self, solver: SolverInterface):
-        assert isinstance(solver, SolverInterface)
-        self.solver = solver
+    def __init__(self, cpm_solver: SolverInterface):
+        assert isinstance(cpm_solver, SolverInterface)
+        self.cpm_solver = cpm_solver
+
+        # print("Initialized wrapped solver instance for", self.cpm_solver.name)
 
     def solve(self, *args, time_limit=None, **kwargs):
 
         if time_limit is not None and time_limit <= 0:
             raise TimeoutError("Solver timed out")
 
-        res = self.solver.solve(*args, **kwargs)
-        status = self.solver.status().exitstatus
+        res = self.cpm_solver.solve(*args, **kwargs)
+        status = self.cpm_solver.status().exitstatus
         if status in {ExitStatus.FEASIBLE, ExitStatus.OPTIMAL, ExitStatus.UNSATISFIABLE}:
             return res
         if status == ExitStatus.UNKNOWN:
@@ -30,16 +32,17 @@ class WrapSolver(SolverInterface):
         raise ValueError(f"Solver returned unknown status {status}")
 
     def add(self, *args, **kwargs):
-        return self.solver.add(*args, **kwargs)
+        return self.cpm_solver.add(*args, **kwargs)
     def __add__(self, *args, **kwargs):
-        return self.solver.__add__(*args, **kwargs)
+        self.cpm_solver.__add__(*args, **kwargs)
+        return self
 
     def get_core(self):
-        return self.solver.get_core()
+        return self.cpm_solver.get_core()
     def objective(self, *args, **kwargs):
-        return self.solver.objective(*args, **kwargs)
+        return self.cpm_solver.objective(*args, **kwargs)
     def solution_hint(self, *args, **kwargs):
-        return self.solver.solution_hint(*args, **kwargs)
+        return self.cpm_solver.solution_hint(*args, **kwargs)
 
 
 class MUSAlgo:
