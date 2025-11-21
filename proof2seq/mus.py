@@ -101,14 +101,14 @@ class DeletionBasedMUS(MUSAlgo):
         soft_assump = self.get_assumps(soft)
         hard_assump = self.get_assumps(hard)
 
-        assert self.solver.solve(assumptions=soft_assump+hard_assump, time_limit=(time()-start)-time_limit) is False
+        assert self.solver.solve(assumptions=soft_assump+hard_assump, time_limit=time_limit - (time()-start)) is False
 
         core = set(self.solver.get_core()) - set(hard_assump)
         for c in sorted(core, key=lambda c: -len(get_variables(self.dmap[c]))):
             if c not in core:
                 continue  # already removed
             core.remove(c)
-            if self.solver.solve(assumptions=list(core) + hard_assump, time_limit=(time()-start)-time_limit) is True:
+            if self.solver.solve(assumptions=list(core) + hard_assump, time_limit=time_limit - (time()-start)) is True:
                 core.add(c)
             else:  # UNSAT, use new solver core (clause set refinement)
                 core = set(self.solver.get_core()) - set(hard_assump)
@@ -155,11 +155,11 @@ class SMUS(MUSAlgo):
         if self.hs_solver == "ortools":
             hs_solver_kwargs = dict(num_search_workers=1)
 
-        while hs_solver.solve(time_limit=(time()-start)-time_limit, **hs_solver_kwargs) is True:
+        while hs_solver.solve(time_limit=time_limit-(time()-start), **hs_solver_kwargs) is True:
 
             hs = [a for a in soft_assump if a.value()]
 
-            if self.solver.solve(assumptions=hs+hard_assump, time_limit=(time()-start)-time_limit) is False:
+            if self.solver.solve(assumptions=hs+hard_assump, time_limit=time_limit-(time()-start)) is False:
                 # UNSAT, found MUS
                 return [self.dmap[a] for a in hs]
 
@@ -169,7 +169,7 @@ class SMUS(MUSAlgo):
 
             # greedily search for other corr subsets disjoint to this one
             sat_subset = list(new_corr_subset)
-            while self.solver.solve(assumptions=sat_subset+hard_assump, time_limit=(time()-start)-time_limit) is True:
+            while self.solver.solve(assumptions=sat_subset+hard_assump, time_limit=time_limit-(time()-start)) is True:
                 new_corr_subset = [a for a in soft_assump if a.value() is False]
                 assert set(sat_subset) & set(new_corr_subset) == set(), "new corr subset is not disjoint to previous"
                 assert len(new_corr_subset) > 0, "new corr subset is empty"

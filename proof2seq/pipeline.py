@@ -24,7 +24,7 @@ def compute_sequence(model,
                      do_sanity_check = True,
                      verbose = 0,
                      pumpkin_solver=None,
-                     time_limit=3600,
+                     time_limit=float("inf"),
                      ):
     """
         Compute a step-wise explanation sequence by starting from a DRCP proof.
@@ -62,7 +62,7 @@ def compute_sequence(model,
         solver = PumpkinProofParser(model)
         assert solver.solve(proof=proof_name, time_limit=time_limit) is False
         if solver.status().exitstatus == ExitStatus.UNKNOWN:
-            raise TimeoutError
+            raise TimeoutError("Initial solve call timed out")
     else:
         solver = pumpkin_solver
 
@@ -114,7 +114,7 @@ def compute_sequence(model,
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase1,
                            mus_type=mus_type, mus_solver=mus_solver,
-                           verbose=verbose, time_limit=(time() - start) - time_limit)
+                           verbose=verbose,  time_limit=time_limit - (time() - start))
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after first minimization phase")
@@ -146,7 +146,7 @@ def compute_sequence(model,
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase2,
                            mus_type=mus_type, mus_solver=mus_solver,
-                           verbose=verbose, time_limit=(time() - start) - time_limit)
+                           verbose=verbose, time_limit=time_limit - (time() - start))
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after second minimization phase")
