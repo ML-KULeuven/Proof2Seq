@@ -61,6 +61,9 @@ class MUSAlgo:
 
         # now add the derived constraints in the proof too
         for step in proof:
+            if step['type'] != "nogood":
+                raise ValueError(f"expected only nogoods in proof, inference reasons should have been replace already\n"
+                                 f"got step {step} of type '{step['type']}'")
             bv = cp.boolvar()
             self.assump.append(bv)
             self.cons.append(step['id'])
@@ -69,8 +72,8 @@ class MUSAlgo:
         self.dmap = dict(zip(self.assump, self.cons))
         self.rev_map = dict(zip(self.cons, self.assump))
 
-        self.solver = cp.SolverLookup.get(mus_solver, assump_model)
-        self.solver = WrapSolver(self.solver)
+        solver = cp.SolverLookup.get(mus_solver, assump_model)
+        self.solver = WrapSolver(solver)
 
     def get_mus(self, soft, hard, time_limit=float("inf")):
         raise NotImplementedError
@@ -137,6 +140,7 @@ class SMUS(MUSAlgo):
         soft_assump = self.get_assumps(soft)
         hard_assump = self.get_assumps(hard)
 
+        assert set(soft_assump) & set(hard_assump) == set(), f"soft and hard constraints must be disjoint!
         hs_solver = cp.SolverLookup.get(self.hs_solver)
         hs_solver.minimize(cp.sum(soft_assump))
         hs_solver = WrapSolver(hs_solver)
