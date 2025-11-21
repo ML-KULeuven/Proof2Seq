@@ -122,6 +122,7 @@ def compute_sequence(model,
 
     # Remove steps deriving clauses with more than one variable
     def is_domain_reduction(step):
+        return len(get_variables(step['derived'])) <= 1
         for c in step['derived']:
             if isinstance(c, cp.BoolVal): return True
             if isinstance(c, Operator) and c.name == "or":
