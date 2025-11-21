@@ -43,8 +43,11 @@ def run_configs_on_model(model, configs):
                 **get_sequence_statistics(seq),
                 **kwargs,
             ))
-        except TimeoutError:
-            results.append(dict(timeout=True, **kwargs))
+        except TimeoutError as e:
+            results.append(dict(timeout=True,
+                                runtime = solve_time + (time.time() - start),
+                                timeout_reason = str(e),
+                                **kwargs))
 
     return results
 
