@@ -1,12 +1,45 @@
 """
     Stateful implementation of MUS-algorithms present in CPMPy
 """
+from time import time
 
 import cpmpy as cp
+from cpmpy.solvers.solver_interface import ExitStatus, SolverInterface
 from cpmpy.tools.explain import make_assump_model
 from cpmpy.expressions.core import Expression
 
 from .utils import get_variables
+
+class WrapSolver(SolverInterface):
+
+    def __init__(self, solver: SolverInterface):
+        assert isinstance(solver, SolverInterface)
+        self.solver = solver
+
+    def solve(self, *args, time_limit=None, **kwargs):
+
+        if time_limit is not None and time_limit <= 0:
+            raise TimeoutError("Solver timed out")
+
+        res = self.solver.solve(*args, **kwargs)
+        status = self.solver.status().exitstatus
+        if status in {ExitStatus.FEASIBLE, ExitStatus.OPTIMAL, ExitStatus.UNSATISFIABLE}:
+            return res
+        if status == ExitStatus.UNKNOWN:
+            raise TimeoutError("Solver timed out")
+        raise ValueError(f"Solver returned unknown status {status}")
+
+    def add(self, *args, **kwargs):
+        return self.solver.add(*args, **kwargs)
+    def __add__(self, *args, **kwargs):
+        return self.solver.__add__(*args, **kwargs)
+
+    def get_core(self):
+        return self.solver.get_core()
+    def objective(self, *args, **kwargs):
+        return self.solver.objective(*args, **kwargs)
+    def solution_hint(self, *args, **kwargs):
+        return self.solver.solution_hint(*args, **kwargs)
 
 
 class MUSAlgo:
@@ -34,8 +67,9 @@ class MUSAlgo:
         self.rev_map = dict(zip(self.cons, self.assump))
 
         self.solver = cp.SolverLookup.get(mus_solver, assump_model)
+        self.solver = WrapSolver(self.solver)
 
-    def get_mus(self, soft, hard):
+    def get_mus(self, soft, hard, time_limit=float("inf")):
         raise NotImplementedError
 
     def get_assumps(self, lst):
@@ -55,7 +89,7 @@ class MUSAlgo:
 
 class DeletionBasedMUS(MUSAlgo):
 
-    def get_mus(self, soft, hard):
+    def get_mus(self, soft, hard, time_limit=float("inf")):
 
         soft_assump = self.get_assumps(soft)
         hard_assump = self.get_assumps(hard)
@@ -91,7 +125,8 @@ class SMUS(MUSAlgo):
         raise ValueError(f"Cannot compute value of given item, expected `Expression` or proof step, but got {item}")
 
 
-    def get_mus(self, soft, hard):
+    def get_mus(self, soft, hard, time_limit=float("inf")):
+        start = time()
 
         if len(soft) == 0:
             return soft
@@ -101,15 +136,22 @@ class SMUS(MUSAlgo):
 
         hs_solver = cp.SolverLookup.get(self.hs_solver)
         hs_solver.minimize(cp.sum(soft_assump))
+        hs_solver = WrapSolver(hs_solver)
 
         if hasattr(self.solver, "solution_hint"):
             self.solver.solution_hint(soft_assump, [1 for _ in soft_assump])
 
-        while hs_solver.solve() is True:
+        hs_solver_kwargs = dict()
+        if self.hs_solver == "gurobi":
+            hs_solver_kwargs = dict(Threads=1)
+        if self.hs_solver == "ortools":
+            hs_solver_kwargs = dict(num_search_workers=1)
+
+        while hs_solver.solve(time_limit=(time()-start)-time_limit, **hs_solver_kwargs) is True:
 
             hs = [a for a in soft_assump if a.value()]
 
-            if self.solver.solve(assumptions=hs+hard_assump) is False:
+            if self.solver.solve(assumptions=hs+hard_assump, time_limit=(time()-start)-time_limit) is False:
                 # UNSAT, found MUS
                 return [self.dmap[a] for a in hs]
 
@@ -119,7 +161,7 @@ class SMUS(MUSAlgo):
 
             # greedily search for other corr subsets disjoint to this one
             sat_subset = list(new_corr_subset)
-            while self.solver.solve(assumptions=sat_subset+hard_assump) is True:
+            while self.solver.solve(assumptions=sat_subset+hard_assump, time_limit=(time()-start)-time_limit) is True:
                 new_corr_subset = [a for a in soft_assump if a.value() is False]
                 assert set(sat_subset) & set(new_corr_subset) == set(), "new corr subset is not disjoint to previous"
                 assert len(new_corr_subset) > 0, "new corr subset is empty"
