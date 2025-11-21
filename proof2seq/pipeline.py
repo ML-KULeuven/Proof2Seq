@@ -19,6 +19,7 @@ def compute_sequence(model,
                      minimization_phase1 = "proof",
                      minimization_phase2 = "global",
                      mus_solver = "exact",
+                     mus_type="smus",
                      proof_name="proof.gz",
                      do_sanity_check = True,
                      verbose = 0,
@@ -49,6 +50,7 @@ def compute_sequence(model,
                                     mus: trim the proof using MUS-minimization
                                     smus: trim the proof using Smallest-MUS minimization
     :param mus_solver: which solver to use during MUS/SMUS minimization
+    :param mus_type: which type of MUS to use: deletion-based MUS or SMUS
     :param proof_name: the name of the proof stored on disk
     :param do_sanity_check: For debugging, check whether the proof is valid
     :param verbose: set verbosity and print statistics of proof
@@ -108,7 +110,7 @@ def compute_sequence(model,
     time_limit -= (time() - start)
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase1,
-                           mus_type="smus", mus_solver=mus_solver,
+                           mus_type=mus_type, mus_solver=mus_solver,
                            verbose=verbose, time_limit=time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
@@ -140,7 +142,7 @@ def compute_sequence(model,
     time_limit -= (time() - start)
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase2,
-                           mus_type="smus", mus_solver=mus_solver,
+                           mus_type=mus_type, mus_solver=mus_solver,
                            verbose=verbose, time_limit=time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
