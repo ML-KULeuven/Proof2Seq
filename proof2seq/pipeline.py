@@ -111,11 +111,10 @@ def compute_sequence(model,
     assert all(step['type'] == 'nogood' for step in newproof)
 
     # Do the first minimization phase
-    time_limit -= (time() - start)
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase1,
                            mus_type=mus_type, mus_solver=mus_solver,
-                           verbose=verbose, time_limit=time_limit)
+                           verbose=verbose, time_limit=(time() - start) - time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after first minimization phase")
@@ -144,11 +143,10 @@ def compute_sequence(model,
         print_proof_statistics(proof, "proof with only domain reductions")
 
     # Do the second minimization phase
-    time_limit -= (time() - start)
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase2,
                            mus_type=mus_type, mus_solver=mus_solver,
-                           verbose=verbose, time_limit=time_limit)
+                           verbose=verbose, time_limit=(time() - start) - time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after second minimization phase")
