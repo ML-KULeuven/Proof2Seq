@@ -96,18 +96,19 @@ class MUSAlgo:
 class DeletionBasedMUS(MUSAlgo):
 
     def get_mus(self, soft, hard, time_limit=float("inf")):
+        start = time()
 
         soft_assump = self.get_assumps(soft)
         hard_assump = self.get_assumps(hard)
 
-        assert self.solver.solve(assumptions=soft_assump+hard_assump) is False
+        assert self.solver.solve(assumptions=soft_assump+hard_assump, time_limit=(time()-start)-time_limit) is False
 
         core = set(self.solver.get_core()) - set(hard_assump)
         for c in sorted(core, key=lambda c: -len(get_variables(self.dmap[c]))):
             if c not in core:
                 continue  # already removed
             core.remove(c)
-            if self.solver.solve(assumptions=list(core) + hard_assump) is True:
+            if self.solver.solve(assumptions=list(core) + hard_assump, time_limit=(time()-start)-time_limit) is True:
                 core.add(c)
             else:  # UNSAT, use new solver core (clause set refinement)
                 core = set(self.solver.get_core()) - set(hard_assump)
