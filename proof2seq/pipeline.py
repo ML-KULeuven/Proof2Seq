@@ -101,10 +101,14 @@ def compute_sequence(model,
             assert isinstance(step['reasons'][0], Expression), f"Inferences should have a single constraint as reason but got {step}"
             inference_map[step['id']] = step['reasons'][0]
         elif step['type'] == 'nogood':
-            new_reasons = set(inference_map.get(r,r) for r in step['reasons'])
+            new_reasons = set(inference_map.get(r,r) for r in step['reasons']) - {cp.BoolVal(True)}
             step = copy.copy(step)
             step['reasons'] = list(new_reasons)
             newproof.append(step)
+
+    proof = newproof
+
+    assert all(step['type'] == 'nogood' for step in newproof)
 
     # Do the first minimization phase
     time_limit -= (time() - start)
