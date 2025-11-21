@@ -166,6 +166,10 @@ def get_domains_from_literals(literals):
                 domains[var] -= set(range(val, var.ub + 1))
             else:
                 raise ValueError(f"Unexpected comparison {lit.name}")
+        elif isinstance(lit, Operator) and lit.name == "or" and len(get_variables(lit)) == 1:
+            var = get_variables(lit)[0]
+            or_domains = [get_domains_from_literals([arg]) for arg in lit.args]
+            domains[var] = set().union(*[dom[var] for dom in or_domains])
         else:
             raise ValueError(f"Unexpected literal {lit}")
     return domains
