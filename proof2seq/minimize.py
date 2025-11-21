@@ -42,7 +42,7 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", ve
             # Step is required, let's minimize the reasons of this step
             # We want a MUS that minimizes the number of constraints
             # Additionally, we prefer nogoods that we need to explain already anyway
-            # Hence, we have a 3-step approach to accomplish this, using 3 MUS calls
+            # Hence, we have a 3-step approach to achieve this, using 3 MUS calls
 
             if minimization_type == "local":
                 candidate_nogoods = [r for r in step['reasons'] if isinstance(r, int)]
