@@ -57,7 +57,8 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", ve
             if verbose >= 4:
                 print(f"Computing required constraints (out of {len(candidate_cons)})")
             required_cons = mus_algo.get_mus(soft=candidate_cons,
-                                             hard=candidate_nogoods + [~cp.all(step['derived'])])
+                                             hard=candidate_nogoods + [~cp.all(step['derived'])],
+                                             time_limit= (time() - start) - time_limit)
 
             # Minimize number of nogoods
             potential_known_nogoods = [r for r in candidate_nogoods if r in required]
@@ -66,11 +67,14 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", ve
             if verbose >= 4:
                 print(f"Computing required new nogoods (out of {len(potential_new_nogoods)})")
             required_new_nogoods = mus_algo.get_mus(soft=potential_new_nogoods,
-                                                    hard=potential_known_nogoods + required_cons + [~cp.all(step['derived'])])
+                                                    hard=potential_known_nogoods + required_cons + [~cp.all(step['derived'])],
+                                                    time_limit=(time() - start) - time_limit)
+
             if verbose >= 4:
                 print(f"Computing required new nogoods (out of {len(potential_new_nogoods)})")
             required_known_nogoods = mus_algo.get_mus(soft=potential_known_nogoods,
-                                                      hard=required_new_nogoods + required_cons + [~cp.all(step['derived'])])
+                                                      hard=required_new_nogoods + required_cons + [~cp.all(step['derived'])],
+                                                      time_limit = (time() - start) - time_limit)
 
             required_nogoods = required_new_nogoods + required_known_nogoods
             assert all(isinstance(ng, int) for ng in required_nogoods)
