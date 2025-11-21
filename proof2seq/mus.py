@@ -141,7 +141,7 @@ class SMUS(MUSAlgo):
         soft_assump = self.get_assumps(soft)
         hard_assump = self.get_assumps(hard)
 
-        assert set(soft_assump) & set(hard_assump) == set(), f"soft and hard constraints must be disjoint!
+        assert set(soft_assump) & set(hard_assump) == set(), f"soft and hard constraints must be disjoint!"
         hs_solver = cp.SolverLookup.get(self.hs_solver)
         hs_solver.minimize(cp.sum(soft_assump))
         hs_solver = WrapSolver(hs_solver)
