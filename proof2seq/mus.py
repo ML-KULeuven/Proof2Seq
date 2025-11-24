@@ -32,7 +32,8 @@ class WrapSolver(SolverInterface):
         raise ValueError(f"Solver returned unknown status {status}")
 
     def add(self, *args, **kwargs):
-        return self.cpm_solver.add(*args, **kwargs)
+        self.cpm_solver.add(*args, **kwargs)
+        return self
     def __add__(self, *args, **kwargs):
         self.cpm_solver.__add__(*args, **kwargs)
         return self
