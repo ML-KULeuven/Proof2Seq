@@ -23,7 +23,7 @@ class WrapSolver(SolverInterface):
         if time_limit is not None and time_limit <= 0:
             raise TimeoutError("Solver timed out")
 
-        res = self.cpm_solver.solve(*args, **kwargs)
+        res = self.cpm_solver.solve(*args,time_limit=time_limit, **kwargs)
         status = self.cpm_solver.status().exitstatus
         if status in {ExitStatus.FEASIBLE, ExitStatus.OPTIMAL, ExitStatus.UNSATISFIABLE}:
             return res
