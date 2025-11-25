@@ -82,6 +82,9 @@ def sanity_check_proof(proof):
             if isinstance(r, int) and r >= step['id']:
                 raise ValueError(f"Proof step {step} uses steps that occur later in the proof!\n{step['reasons']}")
 
+        if len(set('reasons')) != len(step['reasons']):
+            raise ValueError(f"Duplicate reason in step {step}")
+
         # check output is logically implied by input
         cpm_reasons = get_cpm_reasons(step, proof_dict)
         cpm_derived = step['derived']
