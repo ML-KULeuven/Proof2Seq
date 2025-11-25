@@ -19,11 +19,11 @@ def simplify_proof(proof, condition):
     for i, step in enumerate(proof):
 
         if condition(step) is True: # ok, we can show this step
-            new_uses = []
+            new_uses = set()
             for id in step['reasons']:
-                new_uses.extend(parent_dict.get(id, [id]))
+                new_uses = new_uses.union(parent_dict.get(id, [id]))
             step = copy.deepcopy(step)
-            step['reasons'] = new_uses
+            step['reasons'] = list(new_uses)
             new_proof.append(step)
 
         else: # we cannot show this step, need to replace future steps with reasons of this one
