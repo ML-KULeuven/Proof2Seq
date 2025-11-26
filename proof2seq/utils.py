@@ -101,6 +101,15 @@ def sanity_check_proof(proof):
                              f"Reasons:\n\t" +'\n\t'.join(map(str,cpm_reasons)) +"\n"
                              f"Derived: {cpm_derived}")
 
+def sanity_check_sequence(seq):
+
+    current_lits = []
+    for step in seq:
+
+        assert set(step['input_lits']) <= frozenset(current_lits)
+        assert cp.Model(step['input_lits'] + step['constraints'] + [~cp.all(step['output_lits'])]).solve() is False
+        current_lits = list(set(current_lits) | set(step['output_lits']))
+
 
 def get_proof_statistics(proof):
     n_reasons = [len(step['reasons']) for step in proof]
@@ -194,6 +203,28 @@ def minimize_literals(literals):
             new_literals.append(var <= max(dom))
 
     return new_literals
+
+def pretty_print_proof(proof, indent=0):
+    proof_dict = {step['id']: step for step in proof}
+
+    for i, step in enumerate(proof):
+        lines = []
+        other_steps = [i for i in step['reasons'] if isinstance(i, int)]
+        cons = [c for c in step['reasons'] if isinstance(c, Expression)]
+        assert len(other_steps)+len(cons) == len(step['reasons'])
+        lines += ["    Reasons"]
+        lines += ["        " + str(proof_dict[i]['derived']) for i in other_steps]
+        lines += [str(c) for c in cons]
+
+        lines += ["    Derived:"]
+        lines += ["        "+",".join(map(str, step['output_lits']))]
+
+        width = max(len(l) for l in lines)
+        print("--",i+1,"-"*(width+1-len(str(i+1))), sep="")
+        for line in lines:
+            print("    "*indent,"|", line," "*(width-len(line)+1),"|", sep="")
+        print("-"*(width+3))
+
 
 def pretty_print_sequence(sequence, indent=0, format="domain"):
 
