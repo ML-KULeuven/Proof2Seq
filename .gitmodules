@@ -1,0 +1,3 @@
+[submodule "SimplifySeq"]
+	path = SimplifySeq
+	url = https://github.com/ML-KULeuven/SimplifySeq.git
