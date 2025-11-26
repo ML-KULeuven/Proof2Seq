@@ -2,25 +2,29 @@ import multiprocessing
 from multiprocessing import Pool
 from os import listdir
 from os.path import join
-import stopit
 
 import cpmpy as cp
 
+from SimplifySeq.algorithms import construct_greedy, UNSAT, filter_sequence, relax_sequence
 from benchmarks.jobshop import generate_unsat_jobshop_model
 from benchmarks.sudoku import generate_unsat_sudoku_model
 from proof2seq.parsing import PumpkinProofParser
 from proof2seq.pipeline import compute_sequence
-from proof2seq.utils import get_sequence_statistics
+from proof2seq.utils import get_sequence_statistics, sanity_check_sequence
 import time
 import pandas as pd
 import tempfile
 
 NUM_WORKERS = multiprocessing.cpu_count() - 1 # leave one thread available for safety
 TIMEOUT = 3600
+NUM_WORKERS = 1
 
-def run_configs_on_model(model, configs):
+def run_configs_on_model(model, configs, proof_name=None):
 
-    file = tempfile.NamedTemporaryFile(delete=False).name
+    if proof_name is None:
+        file = tempfile.NamedTemporaryFile(delete=False).name
+    else:
+        file = proof_name
 
     start = time.time()
     solver = PumpkinProofParser(model)
@@ -29,13 +33,28 @@ def run_configs_on_model(model, configs):
 
     results = []
     for kwargs in configs:
+        type = kwargs['type']
+        del kwargs['type']
         try:
             start = time.time()
-            # set verbosity and do_sanity_check to false for proper timing results
-            seq = compute_sequence(model, verbose=0, do_sanity_check=False,
-                                   pumpkin_solver=solver,time_limit=TIMEOUT,
-                                   **kwargs)
-            end = time.time()
+            if type == 'proof':
+                # set verbosity and do_sanity_check to false for proper timing results
+                seq = compute_sequence(model, verbose=1, do_sanity_check=False,
+                                       pumpkin_solver=solver,time_limit=TIMEOUT,
+                                       **kwargs)
+            elif type == 'stepwise':
+                seq = construct_greedy(model.constraints, UNSAT, time_limit=TIMEOUT, seed=0)
+                seq = filter_sequence(seq, UNSAT, time_limit=TIMEOUT-(time.time()-start))
+                seq = relax_sequence(seq, mus_solver="exact", time_limit=TIMEOUT-(time.time()-start))
+
+                end = time.time()
+
+                seq = [dict(input_lits=list(step['input']),
+                            constraints=list(step['constraints']),
+                            output_lits=list(step['output'])) for step in seq]
+
+            else:
+                raise ValueError("Unexpected type:", kwargs['type'])
 
             results.append(dict(
                 runtime=solve_time + (end - start),
@@ -55,10 +74,10 @@ def run_experiments(models, configs):
 
     num_workers = NUM_WORKERS
     if NUM_WORKERS == 1:
-        results = [run_configs_on_model(model, configs) for model in models]
+        results = [run_configs_on_model(model, configs, proof_name=f"proof_{i}.drcp.gz") for i, model in enumerate(models)]
     else:
         with Pool(num_workers) as p:
-            results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs)) for model in models])
+            results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs, proof_name=f"proof_{i}.drcp.gz")) for i,model in enumerate(models)])
 
     results = [x for lst in results for x in lst]# each function returns a list of results
     df = pd.DataFrame(results)
@@ -89,13 +108,14 @@ if __name__ == "__main__":
 
 
     configs = [
-        dict(minimization_phase1="trim", minimization_phase2="trim"),
-        dict(minimization_phase1="trim", minimization_phase2="local"),
-        dict(minimization_phase1="trim", minimization_phase2="global"),
-        dict(minimization_phase1="local", minimization_phase2="proof"),
-        dict(minimization_phase1="local", minimization_phase2="local"),
-        dict(minimization_phase1="global", minimization_phase2="proof"),
-        dict(minimization_phase1="global", minimization_phase2="local"),
+        dict(type="proof", minimization_phase1="trim", minimization_phase2="trim"),
+        dict(type="proof", minimization_phase1="trim", minimization_phase2="local"),
+        dict(type="proof", minimization_phase1="proof", minimization_phase2="global"),
+        dict(type="proof", minimization_phase1="local", minimization_phase2="proof"),
+        dict(type="proof", minimization_phase1="local", minimization_phase2="local"),
+        dict(type="proof", minimization_phase1="global", minimization_phase2="proof"),
+        dict(type="proof", minimization_phase1="global", minimization_phase2="local"),
+        dict(type="stepwise")
     ]
 
     models = []
@@ -120,6 +140,6 @@ if __name__ == "__main__":
     else:
         experiment_result = pd.read_pickle(f"{benchmark}_experiments.df")
 
-    plot_runtime(experiment_result)
+    # plot_runtime(experiment_result)
 
 
