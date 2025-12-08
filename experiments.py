@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import pickle
 from multiprocessing import Pool
 from os import listdir
 from os.path import join
@@ -157,11 +158,15 @@ if __name__ == "__main__":
         models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))[:num_experiments]]
 
     if only_plot is False:
-        experiment_result = run_experiments(models, configs, name="sudoku")
+        experiment_result = run_experiments(models, configs, name=benchmark)
         experiment_result.to_pickle(f"{benchmark}_experiments.df")
     else:
-        experiment_result = pd.read_pickle(f"{benchmark}_experiments.df")
+        results = []
+        for fname in os.listdir(f"results_{benchmark}"):
+            with open(os.path.join(f"results_{benchmark}",fname), "rb") as f:
+                results += pickle.load(f)
 
-    # plot_runtime(experiment_result)
+        experiment_result = pd.DataFrame(results)
+        plot_runtime(experiment_result)
 
 
