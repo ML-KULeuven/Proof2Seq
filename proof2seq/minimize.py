@@ -8,7 +8,7 @@ from cpmpy.transformations.normalize import toplevel_list
 from .mus import DeletionBasedMUS, SMUS
 
 
-def minimize_proof(proof, model, minimization_type="global", mus_type="smus", verbose=0, time_limit=float("inf"), **mus_algo_kwargs):
+def minimize_proof(proof, model, minimization_type="global", mus_type="smus", verbose=0, time_limit=None, **mus_algo_kwargs):
 
     assert minimization_type in {"proof", "trim", "local", "global"}
     start = time()
@@ -58,7 +58,7 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", ve
                 print(f"Computing required constraints (out of {len(candidate_cons)})")
             required_cons = mus_algo.get_mus(soft=candidate_cons,
                                              hard=candidate_nogoods + [~cp.all(step['derived'])],
-                                             time_limit= time_limit - (time() - start))
+                                             time_limit= time_limit)
 
             # Minimize number of nogoods
             potential_known_nogoods = [r for r in candidate_nogoods if r in required]
@@ -68,13 +68,13 @@ def minimize_proof(proof, model, minimization_type="global", mus_type="smus", ve
                 print(f"Computing required new nogoods (out of {len(potential_new_nogoods)})")
             required_new_nogoods = mus_algo.get_mus(soft=potential_new_nogoods,
                                                     hard=potential_known_nogoods + required_cons + [~cp.all(step['derived'])],
-                                                    time_limit= time_limit - (time() - start))
+                                                    time_limit= time_limit)
 
             if verbose >= 4:
                 print(f"Computing required new nogoods (out of {len(potential_new_nogoods)})")
             required_known_nogoods = mus_algo.get_mus(soft=potential_known_nogoods,
                                                       hard=required_new_nogoods + required_cons + [~cp.all(step['derived'])],
-                                                      time_limit = time_limit - (time() - start))
+                                                      time_limit = time_limit)
 
             required_nogoods = required_new_nogoods + required_known_nogoods
             assert all(isinstance(ng, int) for ng in required_nogoods)

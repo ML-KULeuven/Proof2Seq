@@ -24,7 +24,7 @@ def compute_sequence(model,
                      do_sanity_check = True,
                      verbose = 0,
                      pumpkin_solver=None,
-                     time_limit=float("inf"),
+                     time_limit=None,
                      ):
     """
         Compute a step-wise explanation sequence by starting from a DRCP proof.
@@ -114,7 +114,7 @@ def compute_sequence(model,
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase1,
                            mus_type=mus_type, mus_solver=mus_solver,
-                           verbose=verbose,  time_limit=time_limit - (time() - start))
+                           verbose=verbose,  time_limit=time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after first minimization phase")
@@ -132,7 +132,7 @@ def compute_sequence(model,
     proof = minimize_proof(proof, model,
                            minimization_type=minimization_phase2,
                            mus_type=mus_type, mus_solver=mus_solver,
-                           verbose=verbose, time_limit=time_limit - (time() - start))
+                           verbose=verbose, time_limit=time_limit)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof after second minimization phase")

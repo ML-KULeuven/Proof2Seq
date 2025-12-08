@@ -8,6 +8,7 @@ from cpmpy.solvers.solver_interface import ExitStatus, SolverInterface
 from cpmpy.tools.explain import make_assump_model
 from cpmpy.expressions.core import Expression
 
+import proof2seq
 from .utils import get_variables
 
 class WrapSolver(SolverInterface):
@@ -20,6 +21,8 @@ class WrapSolver(SolverInterface):
 
     def solve(self, *args, time_limit=None, **kwargs):
 
+        if time_limit is not None and proof2seq.START_TIME is not None:
+            time_limit = time_limit - (time() - proof2seq.START_TIME)
         if time_limit is not None and time_limit <= 0:
             raise TimeoutError("Solver timed out")
 
@@ -76,7 +79,7 @@ class MUSAlgo:
         solver = cp.SolverLookup.get(mus_solver, assump_model)
         self.solver = WrapSolver(solver)
 
-    def get_mus(self, soft, hard, time_limit=float("inf")):
+    def get_mus(self, soft, hard, time_limit=None):
         raise NotImplementedError
 
     def get_assumps(self, lst):
@@ -96,20 +99,19 @@ class MUSAlgo:
 
 class DeletionBasedMUS(MUSAlgo):
 
-    def get_mus(self, soft, hard, time_limit=float("inf")):
-        start = time()
+    def get_mus(self, soft, hard, time_limit=None):
 
         soft_assump = self.get_assumps(soft)
         hard_assump = self.get_assumps(hard)
 
-        assert self.solver.solve(assumptions=soft_assump+hard_assump, time_limit=time_limit - (time()-start)) is False
+        assert self.solver.solve(assumptions=soft_assump+hard_assump, time_limit=time_limit) is False
 
         core = set(self.solver.get_core()) - set(hard_assump)
         for c in sorted(core, key=lambda c: -len(get_variables(self.dmap[c]))):
             if c not in core:
                 continue  # already removed
             core.remove(c)
-            if self.solver.solve(assumptions=list(core) + hard_assump, time_limit=time_limit - (time()-start)) is True:
+            if self.solver.solve(assumptions=list(core) + hard_assump, time_limit=time_limit) is True:
                 core.add(c)
             else:  # UNSAT, use new solver core (clause set refinement)
                 core = set(self.solver.get_core()) - set(hard_assump)
@@ -133,8 +135,7 @@ class SMUS(MUSAlgo):
         raise ValueError(f"Cannot compute value of given item, expected `Expression` or proof step, but got {item}")
 
 
-    def get_mus(self, soft, hard, time_limit=float("inf")):
-        start = time()
+    def get_mus(self, soft, hard, time_limit=None):
 
         if len(soft) == 0:
             return soft
@@ -156,11 +157,11 @@ class SMUS(MUSAlgo):
         if self.hs_solver == "ortools":
             hs_solver_kwargs = dict(num_search_workers=1)
 
-        while hs_solver.solve(time_limit=time_limit-(time()-start), **hs_solver_kwargs) is True:
+        while hs_solver.solve(time_limit=time_limit, **hs_solver_kwargs) is True:
 
             hs = [a for a in soft_assump if a.value()]
 
-            if self.solver.solve(assumptions=hs+hard_assump, time_limit=time_limit-(time()-start)) is False:
+            if self.solver.solve(assumptions=hs+hard_assump, time_limit=time_limit) is False:
                 # UNSAT, found MUS
                 return [self.dmap[a] for a in hs]
 
@@ -170,7 +171,7 @@ class SMUS(MUSAlgo):
 
             # greedily search for other corr subsets disjoint to this one
             sat_subset = list(new_corr_subset)
-            while self.solver.solve(assumptions=sat_subset+hard_assump, time_limit=time_limit-(time()-start)) is True:
+            while self.solver.solve(assumptions=sat_subset+hard_assump, time_limit=time_limit) is True:
                 new_corr_subset = [a for a in soft_assump if a.value() is False]
                 assert set(sat_subset) & set(new_corr_subset) == set(), "new corr subset is not disjoint to previous"
                 assert len(new_corr_subset) > 0, "new corr subset is empty"

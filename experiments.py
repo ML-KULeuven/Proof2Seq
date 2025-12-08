@@ -6,6 +6,8 @@ from os.path import join
 import cpmpy as cp
 
 from SimplifySeq.algorithms import construct_greedy, UNSAT, filter_sequence, relax_sequence
+
+import proof2seq
 from benchmarks.jobshop import generate_unsat_jobshop_model
 from benchmarks.sudoku import generate_unsat_sudoku_model
 from proof2seq.parsing import PumpkinProofParser
@@ -35,14 +37,17 @@ def run_configs_on_model(model, configs, proof_name=None):
     for kwargs in configs:
         type = kwargs['type']
         del kwargs['type']
+        start = time.time()
         try:
-            start = time.time()
+            proof2seq.START_TIME = start
             if type == 'proof':
                 # set verbosity and do_sanity_check to false for proper timing results
                 seq = compute_sequence(model, verbose=1, do_sanity_check=False,
                                        pumpkin_solver=solver,time_limit=TIMEOUT,
                                        **kwargs)
+                end = time.time()
             elif type == 'stepwise':
+                start = time.time()
                 seq = construct_greedy(model.constraints, UNSAT, time_limit=TIMEOUT, seed=0)
                 seq = filter_sequence(seq, UNSAT, time_limit=TIMEOUT-(time.time()-start))
                 seq = relax_sequence(seq, mus_solver="exact", time_limit=TIMEOUT-(time.time()-start))
