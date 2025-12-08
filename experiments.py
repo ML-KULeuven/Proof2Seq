@@ -133,7 +133,7 @@ if __name__ == "__main__":
     configs = [
         dict(type="proof", minimization_phase1="trim", minimization_phase2="trim"),
         dict(type="proof", minimization_phase1="trim", minimization_phase2="local"),
-        dict(type="proof", minimization_phase1="proof", minimization_phase2="global"),
+        dict(type="proof", minimization_phase1="trim", minimization_phase2="global"),
         dict(type="proof", minimization_phase1="local", minimization_phase2="proof"),
         dict(type="proof", minimization_phase1="local", minimization_phase2="local"),
         dict(type="proof", minimization_phase1="global", minimization_phase2="proof"),
