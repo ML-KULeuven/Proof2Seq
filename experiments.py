@@ -1,11 +1,12 @@
 import multiprocessing
+import os
 from multiprocessing import Pool
 from os import listdir
 from os.path import join
 
 import cpmpy as cp
 
-from SimplifySeq.algorithms import construct_greedy, UNSAT, filter_sequence, relax_sequence
+# from SimplifySeq.algorithms import construct_greedy, UNSAT, filter_sequence, relax_sequence
 
 import proof2seq
 from benchmarks.jobshop import generate_unsat_jobshop_model
@@ -21,12 +22,15 @@ NUM_WORKERS = multiprocessing.cpu_count() - 1 # leave one thread available for s
 TIMEOUT = 3600
 NUM_WORKERS = 1
 
-def run_configs_on_model(model, configs, proof_name=None):
+def run_configs_on_model(model, configs, proof_name=None, proof_prefix=".", results_prefix="results/", experiment_index=None):
 
     if proof_name is None:
         file = tempfile.NamedTemporaryFile(delete=False).name
     else:
-        file = proof_name
+        file = join(proof_prefix, proof_name.replace(".gz", "")+ f"_{experiment_index}.drcp.gz")
+
+    os.makedirs(proof_prefix, exist_ok=True)
+    os.makedirs(results_prefix, exist_ok=True)
 
     start = time.time()
     solver = PumpkinProofParser(model)
@@ -35,6 +39,7 @@ def run_configs_on_model(model, configs, proof_name=None):
 
     results = []
     for kwargs in configs:
+        kwargs = dict(kwargs)
         type = kwargs['type']
         del kwargs['type']
         start = time.time()
@@ -42,7 +47,7 @@ def run_configs_on_model(model, configs, proof_name=None):
             proof2seq.START_TIME = start
             if type == 'proof':
                 # set verbosity and do_sanity_check to false for proper timing results
-                seq = compute_sequence(model, verbose=1, do_sanity_check=False,
+                seq = compute_sequence(model, verbose=0, do_sanity_check=False,
                                        pumpkin_solver=solver,time_limit=TIMEOUT,
                                        **kwargs)
                 end = time.time()
@@ -73,16 +78,28 @@ def run_configs_on_model(model, configs, proof_name=None):
                                 timeout_reason = str(e),
                                 **kwargs))
 
+    with open(results_prefix + f"{experiment_index}.pk", "wb") as f:
+        import pickle
+        pickle.dump(results, f)
+
     return results
 
-def run_experiments(models, configs):
+def run_experiments(models, configs, name=None):
 
     num_workers = NUM_WORKERS
     if NUM_WORKERS == 1:
-        results = [run_configs_on_model(model, configs, proof_name=f"proof_{i}.drcp.gz") for i, model in enumerate(models)]
+        results = [run_configs_on_model(model, configs,
+                                        proof_prefix=f"./proofs_{name}",
+                                        proof_name=f"proof",
+                                        results_prefix=f"results_{name}/",
+                                        experiment_index=i) for i, model in enumerate(models)]
     else:
         with Pool(num_workers) as p:
-            results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs, proof_name=f"proof_{i}.drcp.gz")) for i,model in enumerate(models)])
+            results = p.starmap(_wrap_func, [(run_configs_on_model, dict(model=model, configs=configs,
+                                                                         proof_prefix=f"./proofs_{name}",
+                                                                         proof_name=f"proof",
+                                                                         results_prefix=f"results_{name}/",
+                                                                         experiment_index=i)) for i,model in enumerate(models)])
 
     results = [x for lst in results for x in lst]# each function returns a list of results
     df = pd.DataFrame(results)
@@ -120,7 +137,7 @@ if __name__ == "__main__":
         dict(type="proof", minimization_phase1="local", minimization_phase2="local"),
         dict(type="proof", minimization_phase1="global", minimization_phase2="proof"),
         dict(type="proof", minimization_phase1="global", minimization_phase2="local"),
-        dict(type="stepwise")
+        # dict(type="stepwise")
     ]
 
     models = []
@@ -140,7 +157,7 @@ if __name__ == "__main__":
         models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))[:num_experiments]]
 
     if only_plot is False:
-        experiment_result = run_experiments(models, configs)
+        experiment_result = run_experiments(models, configs, name="sudoku")
         experiment_result.to_pickle(f"{benchmark}_experiments.df")
     else:
         experiment_result = pd.read_pickle(f"{benchmark}_experiments.df")
