@@ -127,6 +127,7 @@ def plot_runtime(df):
         stat="count"
     )
 
+    plt.xscale("log")
     plt.show()
 
 
