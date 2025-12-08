@@ -79,6 +79,9 @@ def run_configs_on_model(model, configs, proof_name=None, proof_prefix=".", resu
                                 timeout_reason = str(e),
                                 **kwargs))
 
+    if experiment_index is not None:
+        results['experiment_index'] = experiment_index
+
     with open(results_prefix + f"{experiment_index}.pk", "wb") as f:
         import pickle
         pickle.dump(results, f)
