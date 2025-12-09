@@ -1,0 +1,10 @@
+{
+  "model_func": "generate_unsat_sudoku_model",
+  "instance": {
+    "fname": "benchmarks/expert_sudokus.csv",
+    "seed": {
+      "_from": 0,
+      "_to": 100
+    }
+  }
+}

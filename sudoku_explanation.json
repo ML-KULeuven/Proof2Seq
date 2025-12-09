@@ -1,0 +1,12 @@
+{
+  "proof_dir": "proofs_sudoku/*",
+  "algorithm_setup": [
+    {"minimization_phase1": "trim", "minimization_phase2": "trim", "time_limit": 3600},
+    {"minimization_phase1": "trim", "minimization_phase2": "local", "time_limit": 3600},
+    {"minimization_phase1": "trim", "minimization_phase2": "global", "time_limit": 3600},
+    {"minimization_phase1": "local", "minimization_phase2": "proof", "time_limit": 3600},
+    {"minimization_phase1": "local", "minimization_phase2": "local", "time_limit": 3600},
+    {"minimization_phase1": "global", "minimization_phase2": "proof", "time_limit": 3600},
+    {"minimization_phase1": "global", "minimization_phase2": "local", "time_limit": 3600}
+  ]
+}
