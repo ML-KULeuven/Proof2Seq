@@ -19,9 +19,98 @@ import time
 import pandas as pd
 import tempfile
 
+import runexp
+
 NUM_WORKERS = multiprocessing.cpu_count() - 1 # leave one thread available for safety
 TIMEOUT = 3600
 NUM_WORKERS = 1
+
+#### Generating the Pumpkin proofs, and parsting them to a CPMpy format #####
+
+def get_cpmpy_proof(model, proof_name=None, proof_prefix="."):
+    if proof_name is None:
+        proof_name = tempfile.NamedTemporaryFile(delete=False).name
+
+
+    file = join(proof_prefix, proof_name)
+    start = time.time()
+    solver = PumpkinProofParser(model)
+    assert solver.solve(proof=file) is False, "Only support proofs of unsatisfiability for now"
+    t1 = time.time()
+    proof = solver.read_proof_tree()
+    t2 = time.time()
+
+    return dict(
+        model_and_proof=(model, proof),
+        solver_cons_to_user_cons=solver.user_cons,
+        timings=dict(solve_time=t1-start, parse_time=t2-t1)
+    )
+
+
+class ProofGenerator(runexp.Runner):
+
+    def make_kwargs(self, config):
+
+        model_func = eval(config['model_func'])
+        model = model_func(**config['instance'])
+
+        return dict(
+            model=model,
+            proof_name=config.get("proof_name", None),
+            proof_prefix=config.get("proof_prefix", ".")
+        )
+
+    def description(self, config):
+        return f"Computing proof for" + ",".join(f"{key}={val}" for key,val in config['instance'].items())
+
+
+#### Computing a step-wise explanation starting from the Pumpkin proof #####
+
+def get_explanation_sequence(model, cpm_proof, solver_cons_to_user_cons, timings, model_info, **kwargs):
+
+    start = time.time()
+    seq = compute_sequence(model,
+                           solver_cons_to_user_cons=solver_cons_to_user_cons,
+                           cpm_proof=cpm_proof,
+                           verbose=0,
+                           do_sanity_check=False, # set do_sanity_check to false for proper timing results
+                           **kwargs)
+    end = time.time()
+
+    return dict(
+        timings = dict(coversion_time=end-start, **timings),
+        **get_sequence_statistics(seq),
+        model_info=model_info,
+    )
+
+
+class ExplanationGenerator(runexp.Runner):
+    """
+        The purpose of this runner is to read the already generated proof, and compute the explanation sequence
+        We do it this way, to ensure each method is run on the same proof
+    """
+
+    def make_kwargs(self, config):
+
+        proof_dir = config['proof_dir'] # where the previous experiment stored the proof
+
+        with open(join(proof_dir, "model_and_proof.pickle"), "rb") as f:
+            model, proof = pickle.load(f)
+        with open(join(proof_dir, "solver_cons_to_user_cons.pickle"), "rb") as f:
+            solver_cons_to_user_cons = pickle.load(f)
+        with open(join(proof_dir, "timings.json"), "rb") as f:
+            timings = json.load(f)
+        with open(join(proof_dir, "config.json"), "rb") as f:
+            proof_config = json.load(f)
+
+        return dict(
+            model=model,
+            cpm_proof=proof,
+            solver_cons_to_user_cons=solver_cons_to_user_cons,
+            model_info = proof_config['instance'],
+            timings=timings,
+            **config['algorithm_setup']
+        )
 
 def run_configs_on_model(model, configs, proof_name=None, proof_prefix=".", results_prefix="results/", experiment_index=None):
 
@@ -29,6 +118,7 @@ def run_configs_on_model(model, configs, proof_name=None, proof_prefix=".", resu
         file = tempfile.NamedTemporaryFile(delete=False).name
     else:
         file = join(proof_prefix, proof_name.replace(".gz", "")+ f"_{experiment_index}.drcp.gz")
+
 
     os.makedirs(proof_prefix, exist_ok=True)
     os.makedirs(results_prefix, exist_ok=True)
@@ -131,46 +221,67 @@ def plot_runtime(df):
     plt.show()
 
 
+# if __name__ == "__main__":
+
+
+    # configs = [
+    #     dict(type="proof", minimization_phase1="trim", minimization_phase2="trim"),
+    #     dict(type="proof", minimization_phase1="trim", minimization_phase2="local"),
+    #     dict(type="proof", minimization_phase1="trim", minimization_phase2="global"),
+    #     dict(type="proof", minimization_phase1="local", minimization_phase2="proof"),
+    #     dict(type="proof", minimization_phase1="local", minimization_phase2="local"),
+    #     dict(type="proof", minimization_phase1="global", minimization_phase2="proof"),
+    #     dict(type="proof", minimization_phase1="global", minimization_phase2="local"),
+    #     # dict(type="stepwise")
+    # ]
+    #
+    # models = []
+    #
+    # benchmark = "sudoku"
+    # num_experiments = 5
+    # only_plot = True
+    #
+    # if benchmark == "sudoku":
+    #     models = [generate_unsat_sudoku_model("benchmarks/expert_sudokus.csv", seed=i) for i in range(num_experiments)]
+    #
+    # if benchmark == "jobshop":
+    #     models = [generate_unsat_jobshop_model(n_machines=5, n_jobs=5, horizon=50, factor=0.999999, seed=i) for i in range(num_experiments)]
+    #
+    # if benchmark == "modeling_examples":
+    #     model_dir = "benchmarks/modeling_examples"
+    #     models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))[:num_experiments]]
+    #
+    # if only_plot is False:
+    #     experiment_result = run_experiments(models, configs, name=benchmark)
+    #     experiment_result.to_pickle(f"{benchmark}_experiments.df")
+    # else:
+    #     results = []
+    #     for fname in os.listdir(f"results_{benchmark}"):
+    #         with open(os.path.join(f"results_{benchmark}",fname), "rb") as f:
+    #             results += pickle.load(f)
+    #
+    #     experiment_result = pd.DataFrame(results)
+    #     # plot_runtime(experiment_result)
+    #
+    #     print(experiment_result.columns)
+
+
 if __name__ == "__main__":
 
+    import json
+    from runexp import default_parser
 
-    configs = [
-        dict(type="proof", minimization_phase1="trim", minimization_phase2="trim"),
-        dict(type="proof", minimization_phase1="trim", minimization_phase2="local"),
-        dict(type="proof", minimization_phase1="trim", minimization_phase2="global"),
-        dict(type="proof", minimization_phase1="local", minimization_phase2="proof"),
-        dict(type="proof", minimization_phase1="local", minimization_phase2="local"),
-        dict(type="proof", minimization_phase1="global", minimization_phase2="proof"),
-        dict(type="proof", minimization_phase1="global", minimization_phase2="local"),
-        # dict(type="stepwise")
-    ]
+    parser = default_parser()
 
-    models = []
+    args = parser.parse_args()
+    with open(args.config, "r") as f:
+        config = json.loads(f.read())
+        runner = eval(args.runner)(func=eval(args.func),
+                                   output=args.output,
+                                   memory_limit=args.memory_limit,
+                                   printlog=True)
 
-    benchmark = "sudoku"
-    num_experiments = 100
-    only_plot = False
-
-    if benchmark == "sudoku":
-        models = [generate_unsat_sudoku_model("benchmarks/expert_sudokus.csv", seed=i) for i in range(num_experiments)]
-
-    if benchmark == "jobshop":
-        models = [generate_unsat_jobshop_model(n_machines=5, n_jobs=5, horizon=50, factor=0.999999, seed=i) for i in range(num_experiments)]
-
-    if benchmark == "modeling_examples":
-        model_dir = "benchmarks/modeling_examples"
-        models = [cp.Model.from_file(join(model_dir,fname)) for fname in sorted(listdir(model_dir))[:num_experiments]]
-
-    if only_plot is False:
-        experiment_result = run_experiments(models, configs, name=benchmark)
-        experiment_result.to_pickle(f"{benchmark}_experiments.df")
-    else:
-        results = []
-        for fname in os.listdir(f"results_{benchmark}"):
-            with open(os.path.join(f"results_{benchmark}",fname), "rb") as f:
-                results += pickle.load(f)
-
-        experiment_result = pd.DataFrame(results)
-        plot_runtime(experiment_result)
-
-
+        if args.unravel is True:
+            runner.run_batch(config, parallel=args.parallel, num_workers=args.num_workers)
+        else:
+            runner.run_one(config)
