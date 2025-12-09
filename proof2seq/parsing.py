@@ -226,7 +226,7 @@ class PumpkinProofParser(CPM_pumpkin):
                     proof.append(dict(
                         id = int(match['id']),
                         type="nogood",
-                        reasons = reasons,
+                        reasons = list(set(reasons)), # avoid duplicates
                         derived = [nogood],
                         int_clause = frozenset([-i for i in lit_ids])
                     ))
