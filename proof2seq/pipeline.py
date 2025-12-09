@@ -23,8 +23,9 @@ def compute_sequence(model,
                      proof_name="proof.gz",
                      do_sanity_check = True,
                      verbose = 0,
-                     pumpkin_solver=None,
-                     time_limit=None,
+                     cpm_proof = None,
+                     solver_cons_to_user_cons = None,
+                     time_limit=None
                      ):
     """
         Compute a step-wise explanation sequence by starting from a DRCP proof.
@@ -58,36 +59,36 @@ def compute_sequence(model,
     :return: sequence of explanation steps
     """
     start = time()
-    if pumpkin_solver is None:
+    if cpm_proof is None:
         solver = PumpkinProofParser(model)
         assert solver.solve(proof=proof_name, time_limit=time_limit) is False
         if solver.status().exitstatus == ExitStatus.UNKNOWN:
             raise TimeoutError("Initial solve call timed out")
+        if verbose > 0:
+            print(f"Took {solver.status().runtime}seconds to solve model and produce proof")
+        # read the proof from disk
+        solver_cons_to_user_cons = solver.user_cons
+        cpm_proof = solver.read_proof_tree()
     else:
-        solver = pumpkin_solver
+        assert solver_cons_to_user_cons is not None, "Must provide solver_cons_to_user_cons if cpm_proof is given"
 
+    if do_sanity_check: sanity_check_proof(cpm_proof)
     if verbose > 0:
-        print(f"Took {solver.status().runtime}seconds to solve model and produce proof")
-
-    # read the proof from disk
-    proof = solver.read_proof_tree()
-    if do_sanity_check: sanity_check_proof(proof)
-    if verbose > 0:
-        print_proof_statistics(proof, "initial proof")
+        print_proof_statistics(cpm_proof, "initial proof")
 
     # Remove steps deriving information about auxiliary variables
     user_vars = frozenset(get_variables(model.constraints))
     def only_user_vars(step):
         return frozenset(get_variables(step['derived'])) <= user_vars
 
-    proof = simplify_proof(proof, condition=only_user_vars)
+    proof = simplify_proof(cpm_proof, condition=only_user_vars)
     if do_sanity_check: sanity_check_proof(proof)
     if verbose > 0:
         print_proof_statistics(proof, "proof without auxiliary variables")
 
     # Replace solver-level constraints with user-level constraints
     for step in proof:
-        step['reasons'] = [solver.user_cons.get(r,r) for r in step['reasons']]
+        step['reasons'] = [solver_cons_to_user_cons.get(r,r) for r in step['reasons']]
 
     # There are a lot of repeated inferences in the proof,
     # but we don't care about the exact inferences made, just about the constraint that was used.
