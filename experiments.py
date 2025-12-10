@@ -69,10 +69,11 @@ class ProofGenerator(runexp.Runner):
 def get_explanation_sequence(model, cpm_proof, solver_cons_to_user_cons, timings, model_info, **kwargs):
 
     start = time.time()
+    proof2seq.START_TIME = start
     seq = compute_sequence(model,
                            solver_cons_to_user_cons=solver_cons_to_user_cons,
                            cpm_proof=cpm_proof,
-                           verbose=0,
+                           verbose=4,
                            do_sanity_check=False, # set do_sanity_check to false for proper timing results
                            **kwargs)
     end = time.time()
@@ -111,6 +112,9 @@ class ExplanationGenerator(runexp.Runner):
             timings=timings,
             **config['algorithm_setup']
         )
+
+    def description(self, config):
+        return config['proof_dir'] + "-".join(f"{k}={v}" for k,v, in config['algorithm_setup'].items())
 
 def run_configs_on_model(model, configs, proof_name=None, proof_prefix=".", results_prefix="results/", experiment_index=None):
 

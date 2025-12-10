@@ -23,6 +23,7 @@ class WrapSolver(SolverInterface):
 
         if time_limit is not None and proof2seq.START_TIME is not None:
             time_limit = time_limit - (time() - proof2seq.START_TIME)
+        print(f"Calling {self.cpm_solver.name} with time limit {time_limit}")
         if time_limit is not None and time_limit <= 0:
             raise TimeoutError("Solver timed out")
 
@@ -173,7 +174,7 @@ class SMUS(MUSAlgo):
             sat_subset = list(new_corr_subset)
             while self.solver.solve(assumptions=sat_subset+hard_assump, time_limit=time_limit) is True:
                 new_corr_subset = [a for a in soft_assump if a.value() is False]
-                assert set(sat_subset) & set(new_corr_subset) == set(), "new corr subset is not disjoint to previous"
+                assert set(sat_subset) & set(new_corr_subset) == set(), f"new corr subset is not disjoint to previous\n{[self.dmap[a] for a in set(sat_subset) & set(new_corr_subset)]}"
                 assert len(new_corr_subset) > 0, "new corr subset is empty"
                 sat_subset += new_corr_subset
                 hs_solver += cp.sum(new_corr_subset) >= 1
